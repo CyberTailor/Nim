@@ -47,6 +47,19 @@ proc writeDepsFile(g: ModuleGraph) =
       f.writeLine(toFullPath(g.config, k))
   f.close()
 
+proc writeGccDepfile(conf: ConfigRef) =
+  let depfile = open(conf.depfile.string, fmWrite)
+  depfile.write(conf.outFile.string & ": \\")
+  depfile.write('\n')
+  for it in conf.m.fileInfos:
+    let path = it.fullPath.string
+    if path.len == 0 or not fileExists(path):
+      continue
+    depfile.write('\t')
+    depfile.write(path & " \\")
+    depfile.write('\n')
+  depfile.close()
+
 proc commandGenDepend(graph: ModuleGraph) =
   semanticPasses(graph)
   registerPass(graph, gendependPass)
@@ -124,6 +137,8 @@ proc commandCompileToC(graph: ModuleGraph) =
     # for now we do not support writing out a .json file with the build instructions when HCR is on
     if not conf.hcrOn:
       extccomp.writeJsonBuildInstructions(conf)
+    if conf.depfile.string.len != 0:
+      writeGccDepfile(conf)
     if optGenScript in graph.config.globalOptions:
       writeDepsFile(graph)
 
@@ -141,6 +156,8 @@ proc commandCompileToJS(graph: ModuleGraph) =
     semanticPasses(graph)
     registerPass(graph, JSgenPass)
     compileProject(graph)
+    if conf.depfile.string.len != 0:
+      writeGccDepfile(conf)
     if optGenScript in conf.globalOptions:
       writeDepsFile(graph)
 
